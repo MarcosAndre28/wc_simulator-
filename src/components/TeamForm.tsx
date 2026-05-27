@@ -111,7 +111,7 @@ export function TeamForm({ teams, maxTeams, onAddTeam }: TeamFormProps) {
 
       {isFull && (
         <p className="mt-3 text-sm text-[#ffd700]/80">
-          Lista completa. Clique em &quot;Iniciar simulação&quot; para começar.
+          Lista completa. Defina os confrontos abaixo e inicie a simulação.
         </p>
       )}
     </section>

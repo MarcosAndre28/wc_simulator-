@@ -1,30 +1,44 @@
 "use client";
 
-import { BracketSize, Team } from "@/types/tournament";
+import { BracketSize, Round, Team } from "@/types/tournament";
 import { AppHeader } from "@/components/AppHeader";
 import { BracketSizeSelector } from "@/components/BracketSizeSelector";
+import { FirstRoundPairingEditor } from "@/components/FirstRoundPairingEditor";
 import { TeamForm } from "@/components/TeamForm";
 import { TeamList } from "@/components/TeamList";
+import { countAssignedFirstRoundTeams } from "@/lib/bracket";
 
 interface TournamentSetupProps {
   bracketSize: BracketSize;
   teams: Team[];
+  firstRound: Round;
   canStart: boolean;
   onBracketSizeChange: (size: BracketSize) => void;
   onAddTeam: (team: Team) => void;
   onRemoveTeam: (teamId: string) => void;
+  onAssignSlot: (matchIndex: number, slot: "A" | "B", teamId: string | null) => void;
+  onAutoSeedPairings: () => void;
+  onClearPairings: () => void;
   onStart: () => void;
 }
 
 export function TournamentSetup({
   bracketSize,
   teams,
+  firstRound,
   canStart,
   onBracketSizeChange,
   onAddTeam,
   onRemoveTeam,
+  onAssignSlot,
+  onAutoSeedPairings,
+  onClearPairings,
   onStart,
 }: TournamentSetupProps) {
+  const teamsFull = teams.length === bracketSize;
+  const assignedCount = countAssignedFirstRoundTeams(firstRound ?? undefined);
+  const pairingsIncomplete = teamsFull && assignedCount < teams.length;
+
   return (
     <div className="app-shell flex min-h-screen flex-col">
       <AppHeader />
@@ -33,8 +47,8 @@ export function TournamentSetup({
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white sm:text-4xl">Configuração do torneio</h1>
           <p className="mt-2 max-w-2xl text-sm text-white/50 sm:text-base">
-            Configure a estrutura do seu torneio e registre as equipes participantes antes de
-            iniciar a simulação.
+            Registre as equipes e defina os confrontos da primeira fase antes de iniciar a
+            simulação.
           </p>
         </div>
 
@@ -47,7 +61,20 @@ export function TournamentSetup({
           <TeamList teams={teams} maxTeams={bracketSize} onRemoveTeam={onRemoveTeam} />
         </div>
 
-        <footer className="mt-10 flex justify-end">
+        {teams.length > 0 && (
+          <div className="mt-8">
+            <FirstRoundPairingEditor
+              teams={teams}
+              firstRound={firstRound}
+              roundLabel={firstRound.name}
+              onAssign={onAssignSlot}
+              onAutoSeed={onAutoSeedPairings}
+              onClearPairings={onClearPairings}
+            />
+          </div>
+        )}
+
+        <footer className="mt-10 flex flex-col items-end gap-2">
           <button
             type="button"
             onClick={onStart}
@@ -59,13 +86,19 @@ export function TournamentSetup({
               <path d="M8 5v14l11-7z" />
             </svg>
           </button>
-        </footer>
 
-        {!canStart && teams.length > 0 && (
-          <p className="mt-3 text-right text-sm text-white/40">
-            Registre mais {bracketSize - teams.length} equipe(s) para iniciar.
-          </p>
-        )}
+          {!teamsFull && teams.length > 0 && (
+            <p className="text-right text-sm text-white/40">
+              Registre mais {bracketSize - teams.length} equipe(s) para montar a chave completa.
+            </p>
+          )}
+
+          {pairingsIncomplete && (
+            <p className="text-right text-sm text-[#ffd700]/80">
+              Defina todos os confrontos ({assignedCount}/{teams.length} equipes posicionadas).
+            </p>
+          )}
+        </footer>
       </main>
     </div>
   );

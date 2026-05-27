@@ -100,3 +100,18 @@ input {
     justify-content: center;
   }
 }
+
+/* Lista de equipes nos confrontos (substitui select nativo do sistema) */
+.pairing-picker-menu {
+  scrollbar-color: rgba(255, 215, 0, 0.35) #121212;
+  scrollbar-width: thin;
+}
+
+.pairing-picker-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pairing-picker-menu::-webkit-scrollbar-thumb {
+  background: rgba(255, 215, 0, 0.35);
+  border-radius: 3px;
+}

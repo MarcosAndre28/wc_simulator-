@@ -7,10 +7,14 @@ import {
   TournamentState,
 } from "@/types/tournament";
 import {
+  assignTeamToFirstRoundSlot,
+  autoSeedFirstRound,
   canStartTournament,
+  clearFirstRoundPairings,
   createEmptyTournament,
-  createTournament,
+  removeTeamFromSetup,
   selectMatchWinner,
+  startTournament,
 } from "@/lib/bracket";
 import { clearTournament, loadTournament, saveTournament } from "@/lib/storage";
 import { Bracket } from "@/components/Bracket";
@@ -102,18 +106,50 @@ export function TournamentApp() {
       return;
     }
 
-    updateTournament({
-      ...tournament,
-      teams: tournament.teams.filter((team) => team.id !== teamId),
-    });
+    updateTournament(removeTeamFromSetup(tournament, teamId));
   }
 
-  function handleStartTournament() {
-    if (!canStartTournament(tournament.bracketSize, tournament.teams.length)) {
+  function handleAssignSlot(
+    matchIndex: number,
+    slot: "A" | "B",
+    teamId: string | null,
+  ) {
+    if (tournament.phase !== "setup") {
       return;
     }
 
-    updateTournament(createTournament(tournament.bracketSize, tournament.teams));
+    updateTournament(assignTeamToFirstRoundSlot(tournament, matchIndex, slot, teamId));
+  }
+
+  function handleAutoSeedPairings() {
+    if (tournament.phase !== "setup") {
+      return;
+    }
+
+    updateTournament(autoSeedFirstRound(tournament));
+  }
+
+  function handleClearPairings() {
+    if (tournament.phase !== "setup") {
+      return;
+    }
+
+    updateTournament(clearFirstRoundPairings(tournament));
+  }
+
+  function handleStartTournament() {
+    if (
+      !canStartTournament(
+        tournament.bracketSize,
+        tournament.teams.length,
+        tournament.rounds,
+        tournament.teams,
+      )
+    ) {
+      return;
+    }
+
+    updateTournament(startTournament(tournament));
     setSimulatorTab("bracket");
     setShowBracketAfterWin(false);
   }
@@ -131,15 +167,37 @@ export function TournamentApp() {
   }
 
   function handleBackToSetup() {
-    updateTournament({
-      ...createEmptyTournament(tournament.bracketSize),
-      teams: tournament.teams,
-    });
+    const empty = createEmptyTournament(tournament.bracketSize);
+    empty.teams = [...tournament.teams];
+
+    const previousFirst = tournament.rounds[0];
+    const teamIds = new Set(empty.teams.map((team) => team.id));
+
+    if (previousFirst) {
+      empty.rounds[0] = structuredClone(previousFirst);
+      for (const match of empty.rounds[0].matches) {
+        match.winnerId = null;
+        if (match.teamA && !teamIds.has(match.teamA.id)) {
+          match.teamA = null;
+        }
+        if (match.teamB && !teamIds.has(match.teamB.id)) {
+          match.teamB = null;
+        }
+      }
+    }
+
+    updateTournament(empty);
     setSimulatorTab("setup");
     setShowBracketAfterWin(false);
   }
 
-  const canStart = canStartTournament(tournament.bracketSize, tournament.teams.length);
+  const canStart = canStartTournament(
+    tournament.bracketSize,
+    tournament.teams.length,
+    tournament.rounds,
+    tournament.teams,
+  );
+  const firstRound = tournament.rounds[0];
   const isSetup = tournament.phase === "setup";
   const isChampion = tournament.phase === "champion" && tournament.champion != null;
 
@@ -174,15 +232,19 @@ export function TournamentApp() {
     );
   }
 
-  if (isSetup && simulatorTab === "setup") {
+  if (isSetup && simulatorTab === "setup" && firstRound) {
     return (
       <TournamentSetup
         bracketSize={displayBracketSize}
         teams={tournament.teams}
+        firstRound={firstRound}
         canStart={canStart}
         onBracketSizeChange={handleBracketSizeChange}
         onAddTeam={handleAddTeam}
         onRemoveTeam={handleRemoveTeam}
+        onAssignSlot={handleAssignSlot}
+        onAutoSeedPairings={handleAutoSeedPairings}
+        onClearPairings={handleClearPairings}
         onStart={handleStartTournament}
       />
     );

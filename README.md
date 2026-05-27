@@ -41,8 +41,22 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+## Deploy na Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Importe o repositório em [vercel.com/new](https://vercel.com/new) e escolha o preset **Next.js** (não use **Other**).
+2. **Root Directory**: deixe vazio (o `package.json` está na raiz do repositório).
+3. **Output Directory**: deixe vazio — a Vercel define isso automaticamente para Next.js. Se estiver `.next`, `out` ou `dist`, apague e salve.
+4. **Build Command**: `npm run build` (padrão).
+5. Faça o deploy e abra a URL que aparece em **Deployments → Visit** (ex.: `seu-projeto.vercel.app`).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Página 404 (`NOT_FOUND`) com build OK
+
+Se o log mostra a rota `/` mas o site exibe o 404 branco da Vercel:
+
+- Confirme **Framework Preset = Next.js** em *Settings → General → Build & Development Settings*.
+- Remova qualquer **Output Directory** customizado.
+- Teste a URL exata do último deployment (não um domínio antigo).
+- Se o domínio customizado falhar, teste primeiro o `*.vercel.app`.
+- Redeploy com **Clear build cache** ou reimporte o projeto no dashboard.
+
+O arquivo `vercel.json` na raiz só fixa os comandos de build; o preset **Next.js** no painel é obrigatório.
