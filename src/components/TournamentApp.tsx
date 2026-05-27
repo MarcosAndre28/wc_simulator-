@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   BracketSize,
   Team,
@@ -16,6 +17,11 @@ import {
   selectMatchWinner,
   startTournament,
 } from "@/lib/bracket";
+import {
+  type AppScreen,
+  hrefForScreen,
+  screenFromSearchParam,
+} from "@/lib/app-navigation";
 import { clearTournament, loadTournament, saveTournament } from "@/lib/storage";
 import { Bracket } from "@/components/Bracket";
 import { ChampionScreen } from "@/components/ChampionScreen";
@@ -27,11 +33,57 @@ import { SETUP_BRACKET_SIZES } from "@/components/BracketSizeSelector";
 type AppView = "welcome" | "simulator";
 
 export function TournamentApp() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [view, setView] = useState<AppView>("welcome");
   const [simulatorTab, setSimulatorTab] = useState<"setup" | "bracket">("setup");
   const [showBracketAfterWin, setShowBracketAfterWin] = useState(false);
   const [tournament, setTournament] = useState<TournamentState>(() => createEmptyTournament(16));
   const [isHydrated, setIsHydrated] = useState(false);
+
+  const applyScreen = useCallback((screen: AppScreen) => {
+    switch (screen) {
+      case "home":
+        setView("welcome");
+        setShowBracketAfterWin(false);
+        break;
+      case "cadastro":
+        setView("simulator");
+        setSimulatorTab("setup");
+        setShowBracketAfterWin(false);
+        break;
+      case "torneio":
+        setView("simulator");
+        setSimulatorTab("bracket");
+        setShowBracketAfterWin(false);
+        break;
+      case "campeao":
+        setView("simulator");
+        setShowBracketAfterWin(false);
+        break;
+      case "chave":
+        setView("simulator");
+        setSimulatorTab("bracket");
+        setShowBracketAfterWin(true);
+        break;
+      default:
+        break;
+    }
+  }, []);
+
+  const navigate = useCallback(
+    (screen: AppScreen, options?: { replace?: boolean }) => {
+      applyScreen(screen);
+      const href = hrefForScreen(screen);
+      if (options?.replace) {
+        router.replace(href);
+      } else {
+        router.push(href);
+      }
+    },
+    [applyScreen, router],
+  );
 
   useEffect(() => {
     void Promise.resolve().then(() => {
@@ -60,16 +112,20 @@ export function TournamentApp() {
           normalized = fresh;
         }
         setTournament(normalized);
-        if (normalized.phase === "bracket" || normalized.phase === "champion") {
-          setSimulatorTab("bracket");
-        }
-        if (normalized.phase === "champion") {
-          setShowBracketAfterWin(false);
-        }
       }
+
       setIsHydrated(true);
     });
   }, []);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    const urlScreen = screenFromSearchParam(searchParams.get("tela"));
+    applyScreen(urlScreen);
+  }, [searchParams, isHydrated, applyScreen]);
 
   useEffect(() => {
     if (!isHydrated || view !== "simulator") {
@@ -79,12 +135,6 @@ export function TournamentApp() {
     saveTournament(tournament);
   }, [tournament, isHydrated, view]);
 
-  useEffect(() => {
-    if (tournament.phase !== "champion") {
-      setShowBracketAfterWin(false);
-    }
-  }, [tournament.phase]);
-
   function updateTournament(next: TournamentState) {
     setTournament(next);
   }
@@ -92,9 +142,7 @@ export function TournamentApp() {
   function handleStartNewSimulation() {
     clearTournament();
     updateTournament(createEmptyTournament(16));
-    setSimulatorTab("setup");
-    setShowBracketAfterWin(false);
-    setView("simulator");
+    navigate("cadastro");
   }
 
   function handleBracketSizeChange(size: BracketSize) {
@@ -168,20 +216,22 @@ export function TournamentApp() {
     }
 
     updateTournament(startTournament(tournament));
-    setSimulatorTab("bracket");
-    setShowBracketAfterWin(false);
+    navigate("torneio");
   }
 
   function handleSelectWinner(matchId: string, winnerId: string) {
-    updateTournament(selectMatchWinner(tournament, matchId, winnerId));
+    const next = selectMatchWinner(tournament, matchId, winnerId);
+    updateTournament(next);
+
+    if (next.phase === "champion" && next.champion) {
+      navigate("campeao");
+    }
   }
 
   function handleRestart() {
     clearTournament();
     updateTournament(createEmptyTournament(16));
-    setSimulatorTab("setup");
-    setShowBracketAfterWin(false);
-    setView("welcome");
+    navigate("home", { replace: true });
   }
 
   function handleBackToSetup() {
@@ -205,8 +255,7 @@ export function TournamentApp() {
     }
 
     updateTournament(empty);
-    setSimulatorTab("setup");
-    setShowBracketAfterWin(false);
+    navigate("cadastro");
   }
 
   const canStart = canStartTournament(
@@ -245,7 +294,7 @@ export function TournamentApp() {
       <ChampionScreen
         champion={tournament.champion}
         onStartNew={handleRestart}
-        onViewBracket={() => setShowBracketAfterWin(true)}
+        onViewBracket={() => navigate("chave")}
       />
     );
   }
@@ -281,7 +330,7 @@ export function TournamentApp() {
             </p>
             <button
               type="button"
-              onClick={() => setShowBracketAfterWin(false)}
+              onClick={() => navigate("campeao")}
               className="rounded-xl border border-[#ffd700]/30 px-4 py-2 text-sm font-semibold text-[#ffd700] transition hover:bg-[#ffd700]/10"
             >
               Ver tela do campeão
