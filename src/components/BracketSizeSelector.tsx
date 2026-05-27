@@ -1,6 +1,6 @@
 import { BracketSize } from "@/types/tournament";
 
-export const SETUP_BRACKET_SIZES: BracketSize[] = [4, 8, 16, 20, 32];
+export const SETUP_BRACKET_SIZES: BracketSize[] = [4, 8, 16, 22, 32];
 
 interface BracketSizeSelectorProps {
   value: BracketSize;
@@ -29,7 +29,8 @@ export function BracketSizeSelector({ value, onChange, disabled = false }: Brack
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {SETUP_BRACKET_SIZES.map((size) => {
           const isActive = displayValue === size;
-          const teamsPerSide = size / 2;
+          const sublabel =
+            size === 22 ? "21 inscritos · classif. + mata-mata 16" : `${size / 2} por lado`;
 
           return (
             <button
@@ -44,8 +45,8 @@ export function BracketSizeSelector({ value, onChange, disabled = false }: Brack
               } disabled:cursor-not-allowed disabled:opacity-50`}
             >
               <span className="text-2xl font-bold sm:text-3xl">{size}</span>
-              <span className="mt-0.5 text-[10px] text-white/40">
-                {teamsPerSide} por lado
+              <span className="mt-0.5 px-1 text-center text-[10px] leading-tight text-white/40">
+                {sublabel}
               </span>
               {isActive && (
                 <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[#ffd700]">

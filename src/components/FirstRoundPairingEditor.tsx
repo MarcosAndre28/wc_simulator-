@@ -1,14 +1,23 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Round, Team } from "@/types/tournament";
-import { countAssignedFirstRoundTeams } from "@/lib/bracket";
+import { BracketSize, Round, Team } from "@/types/tournament";
+import {
+  countAssignedFirstRoundTeams,
+  getTeamsNotInQualificationSetup,
+} from "@/lib/bracket";
+import {
+  QUALIFICATION_1_LAST_MATCH_INDEX,
+  QUALIFICATION_REGISTERED_COUNT,
+} from "@/lib/bracket-structure";
 import { FlagIcon } from "@/components/FlagIcon";
 
 interface FirstRoundPairingEditorProps {
+  bracketSize: BracketSize;
   teams: Team[];
   firstRound: Round;
   roundLabel: string;
+  pairingError?: string | null;
   onAssign: (matchIndex: number, slot: "A" | "B", teamId: string | null) => void;
   onAutoSeed: () => void;
   onClearPairings: () => void;
@@ -42,11 +51,12 @@ function teamsAvailableForSlot(
   firstRound: Round,
   matchIndex: number,
   slot: "A" | "B",
+  _bracketSize: BracketSize,
 ): Team[] {
   const match = firstRound.matches[matchIndex];
   const current = slot === "A" ? match?.teamA : match?.teamB;
-  const placedIds = new Set<string>();
 
+  const placedIds = new Set<string>();
   for (const item of firstRound.matches) {
     if (item.teamA) {
       placedIds.add(item.teamA.id);
@@ -102,7 +112,7 @@ function TeamSlotPicker({
   }, [open]);
 
   return (
-    <div ref={rootRef} className="pairing-picker relative w-full min-w-[17.5rem] sm:min-w-[20rem]">
+    <div ref={rootRef} className="pairing-picker relative w-full max-w-full min-w-0 sm:min-w-[17.5rem] lg:min-w-[18rem]">
       <span className="sr-only">{label}</span>
       <button
         type="button"
@@ -143,7 +153,7 @@ function TeamSlotPicker({
           id={listId}
           role="listbox"
           aria-label={label}
-          className="pairing-picker-menu absolute left-0 z-50 mt-1.5 w-full min-w-full max-h-60 overflow-y-auto rounded-xl border border-white/10 bg-[#1a1a1a] py-1 shadow-[0_12px_40px_rgba(0,0,0,0.55)]"
+          className="pairing-picker-menu absolute left-0 z-50 mt-1.5 max-h-60 w-full min-w-full overflow-y-auto rounded-xl border border-white/10 bg-[#1a1a1a] py-1 shadow-[0_12px_40px_rgba(0,0,0,0.55)]"
         >
           {selectedTeam && (
             <li role="option" aria-selected={false}>
@@ -198,31 +208,95 @@ function TeamSlotPicker({
   );
 }
 
+function MatchPairingCard({
+  match,
+  matchIndex,
+  label,
+  teams,
+  firstRound,
+  bracketSize,
+  onAssign,
+  highlight,
+}: {
+  match: Round["matches"][0];
+  matchIndex: number;
+  label: string;
+  teams: Team[];
+  firstRound: Round;
+  bracketSize: BracketSize;
+  onAssign: (matchIndex: number, slot: "A" | "B", teamId: string | null) => void;
+  highlight?: boolean;
+}) {
+  const slotAOptions = teamsAvailableForSlot(teams, firstRound, matchIndex, "A", bracketSize);
+  const slotBOptions = teamsAvailableForSlot(teams, firstRound, matchIndex, "B", bracketSize);
+
+  return (
+    <li
+      className={`relative flex flex-col gap-3 overflow-visible rounded-xl border p-4 ${
+        highlight
+          ? "border-[#ffd700]/40 bg-[#ffd700]/5"
+          : "border-white/10 bg-[#121212]"
+      }`}
+    >
+      <span className="text-[10px] font-bold uppercase tracking-wider text-white/35">
+        {label}
+      </span>
+      <div className="flex flex-col gap-2.5">
+        <TeamSlotPicker
+          selectedTeam={match.teamA}
+          options={slotAOptions}
+          onSelect={(teamId) => onAssign(matchIndex, "A", teamId)}
+          disabled={teams.length === 0}
+          label={`Equipe A — ${label}`}
+        />
+        <span className="py-0.5 text-center text-xs font-bold uppercase text-white/30">vs</span>
+        <TeamSlotPicker
+          selectedTeam={match.teamB}
+          options={slotBOptions}
+          onSelect={(teamId) => onAssign(matchIndex, "B", teamId)}
+          disabled={teams.length === 0}
+          label={`Equipe B — ${label}`}
+        />
+      </div>
+    </li>
+  );
+}
+
 export function FirstRoundPairingEditor({
+  bracketSize,
   teams,
   firstRound,
   roundLabel,
+  pairingError,
   onAssign,
   onAutoSeed,
   onClearPairings,
 }: FirstRoundPairingEditorProps) {
   const assignedCount = countAssignedFirstRoundTeams(firstRound);
   const canAutoFill = teams.length >= 2;
+  const isQualificationFormat = bracketSize === 22;
+  const pendingForGame11 = isQualificationFormat
+    ? getTeamsNotInQualificationSetup(teams, firstRound)
+    : [];
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-5 sm:p-6">
+    <section className="rounded-2xl border border-white/10 bg-[#1a1a1a] p-4 sm:p-5 md:p-6">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <SwordsIcon />
           <div>
             <h2 className="text-lg font-semibold text-white">Confrontos da {roundLabel}</h2>
             <p className="mt-0.5 text-sm text-white/45">
-              Escolha quem enfrenta quem em cada jogo da primeira fase.
+              {isQualificationFormat
+                ? "21 equipes inscritas: monte os jogos 1–10 (20 vagas). Ao iniciar, o jogo 11 junta a equipe que faltou com outra que já jogou (2ª partida na classificação)."
+                : "Escolha quem enfrenta quem em cada jogo da primeira fase."}
             </p>
           </div>
         </div>
         <span className="shrink-0 rounded-full border border-white/15 bg-[#121212] px-3 py-1 text-xs font-semibold text-white/60">
-          {assignedCount} / {teams.length} nas chaves
+          {isQualificationFormat
+            ? `${Math.min(assignedCount, 20)} / 20 nos jogos · ${teams.length}/${QUALIFICATION_REGISTERED_COUNT} inscritos`
+            : `${assignedCount} / ${teams.length} nas chaves`}
         </span>
       </div>
 
@@ -245,42 +319,38 @@ export function FirstRoundPairingEditor({
         </button>
       </div>
 
-      <ul className="grid gap-4 grid-cols-1 md:grid-cols-2 2xl:grid-cols-3">
-        {firstRound.matches.map((match, matchIndex) => {
-          const slotAOptions = teamsAvailableForSlot(teams, firstRound, matchIndex, "A");
-          const slotBOptions = teamsAvailableForSlot(teams, firstRound, matchIndex, "B");
+      {pairingError && (
+        <p className="mb-4 rounded-xl border border-[#ffd700]/30 bg-[#ffd700]/10 px-4 py-3 text-sm text-[#ffd700]">
+          {pairingError}
+        </p>
+      )}
 
-          return (
-            <li
-              key={match.id}
-              className="relative flex flex-col gap-3 overflow-visible rounded-xl border border-white/10 bg-[#121212] p-4"
-            >
-              <span className="text-[10px] font-bold uppercase tracking-wider text-white/35">
-                Jogo {matchIndex + 1}
-              </span>
-              <div className="flex flex-col gap-2.5">
-                <TeamSlotPicker
-                  selectedTeam={match.teamA}
-                  options={slotAOptions}
-                  onSelect={(teamId) => onAssign(matchIndex, "A", teamId)}
-                  disabled={teams.length === 0}
-                  label={`Equipe A do jogo ${matchIndex + 1}`}
-                />
-                <span className="py-0.5 text-center text-xs font-bold uppercase text-white/30">
-                  vs
-                </span>
-                <TeamSlotPicker
-                  selectedTeam={match.teamB}
-                  options={slotBOptions}
-                  onSelect={(teamId) => onAssign(matchIndex, "B", teamId)}
-                  disabled={teams.length === 0}
-                  label={`Equipe B do jogo ${matchIndex + 1}`}
-                />
-              </div>
-            </li>
-          );
-        })}
+      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {firstRound.matches
+          .filter((_, matchIndex) => !isQualificationFormat || matchIndex < QUALIFICATION_1_LAST_MATCH_INDEX)
+          .map((match, matchIndex) => (
+          <MatchPairingCard
+            key={match.id}
+            match={match}
+            matchIndex={matchIndex}
+            label={`Jogo ${matchIndex + 1}`}
+            teams={teams}
+            firstRound={firstRound}
+            bracketSize={bracketSize}
+            onAssign={onAssign}
+          />
+        ))}
       </ul>
+
+      {isQualificationFormat && pendingForGame11.length > 0 && (
+        <p className="mt-4 text-xs text-white/40">
+          Jogo 11 ao iniciar incluirá:{" "}
+          {pendingForGame11.map((t) => t.name).join(", ")}
+          {pendingForGame11.length === 1
+            ? " e mais uma equipe dos jogos 1–10 (segunda partida na classificação)."
+            : "."}
+        </p>
+      )}
     </section>
   );
 }

@@ -1,9 +1,17 @@
 import {
   getDownstreamSlotsToClear,
+  getLoserAdvancement,
+  getLoserDownstreamSlotsToClear,
   getMatchesPerRound,
   getRoundNameForBracket,
+  getStandardFirstRoundMatchCount,
   getTotalRoundsForSize,
   getWinnerAdvancement,
+  QUALIFICATION_1_LAST_MATCH_INDEX,
+  QUALIFICATION_1_MATCH_COUNT,
+  QUALIFICATION_1_REQUIRED_MATCHES,
+  QUALIFICATION_REGISTERED_COUNT,
+  getRegisteredTeamCount,
 } from "@/lib/bracket-structure";
 import {
   BracketSize,
@@ -93,14 +101,114 @@ export function createTournament(bracketSize: BracketSize, teams: Team[]): Tourn
   };
 }
 
-/** Todas as equipes estão em confrontos distintos na primeira rodada. */
+function countTeamAppearancesInFirstRound(firstRound: Round): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const match of firstRound.matches) {
+    for (const team of [match.teamA, match.teamB]) {
+      if (team) {
+        counts.set(team.id, (counts.get(team.id) ?? 0) + 1);
+      }
+    }
+  }
+  return counts;
+}
+
+function getTeamsInQualificationRequiredMatches(firstRound: Round): Set<string> {
+  const ids = new Set<string>();
+  for (let i = 0; i < QUALIFICATION_1_REQUIRED_MATCHES; i += 1) {
+    const match = firstRound.matches[i];
+    if (match?.teamA) {
+      ids.add(match.teamA.id);
+    }
+    if (match?.teamB) {
+      ids.add(match.teamB.id);
+    }
+  }
+  return ids;
+}
+
+/** Equipes que ainda não estão nos jogos 1–10. */
+export function getTeamsNotInQualificationSetup(
+  teams: Team[],
+  firstRound: Round,
+): Team[] {
+  const inSetup = getTeamsInQualificationRequiredMatches(firstRound);
+  return teams.filter((team) => !inSetup.has(team.id));
+}
+
+/** Monta o jogo 11 ao iniciar (2 equipes; uma pode repetir dos jogos 1–10). */
+export function finalizeQualification1Pairings(
+  tournament: TournamentState,
+): TournamentState {
+  if (tournament.bracketSize !== 22) {
+    return tournament;
+  }
+
+  const next = structuredClone(tournament);
+  const firstRound = next.rounds[0];
+  const lastMatch = firstRound?.matches[QUALIFICATION_1_LAST_MATCH_INDEX];
+
+  if (!firstRound || !lastMatch || next.teams.length !== QUALIFICATION_REGISTERED_COUNT) {
+    return tournament;
+  }
+
+  const inSetup = getTeamsInQualificationRequiredMatches(firstRound);
+  const unassigned = getTeamsNotInQualificationSetup(next.teams, firstRound);
+
+  let teamA: Team | undefined;
+  let teamB: Team | undefined;
+
+  if (unassigned.length >= 2) {
+    teamA = unassigned[0];
+    teamB = unassigned[1];
+  } else if (unassigned.length === 1) {
+    teamA = unassigned[0];
+    teamB = next.teams.find((t) => inSetup.has(t.id));
+  }
+
+  if (!teamA || !teamB) {
+    return tournament;
+  }
+
+  lastMatch.teamA = teamA;
+  lastMatch.teamB = teamB;
+
+  return next;
+}
+
+/** Valida classificação 1: jogos 1–10 no setup (jogo 11 ao iniciar). */
 export function isFirstRoundPairingComplete(
   rounds: Round[],
   teams: Team[],
+  bracketSize?: BracketSize,
 ): boolean {
   const firstRound = rounds[0];
   if (!firstRound || teams.length === 0) {
     return false;
+  }
+
+  const size = bracketSize ?? teams.length;
+
+  if (size === 22) {
+    if (
+      firstRound.matches.length !== QUALIFICATION_1_MATCH_COUNT ||
+      teams.length !== QUALIFICATION_REGISTERED_COUNT
+    ) {
+      return false;
+    }
+
+    for (let i = 0; i < QUALIFICATION_1_REQUIRED_MATCHES; i += 1) {
+      const match = firstRound.matches[i];
+      if (!match?.teamA || !match?.teamB) {
+        return false;
+      }
+      if (match.teamA.id === match.teamB.id) {
+        return false;
+      }
+    }
+
+    const requiredIds = getTeamsInQualificationRequiredMatches(firstRound);
+    return requiredIds.size === 20;
   }
 
   const expectedMatches = teams.length / 2;
@@ -124,6 +232,37 @@ export function isFirstRoundPairingComplete(
   return assigned.size === teams.length;
 }
 
+export function getFirstRoundPairingError(
+  rounds: Round[],
+  teams: Team[],
+  bracketSize: BracketSize,
+): string | null {
+  if (bracketSize !== 22) {
+    return null;
+  }
+  const firstRound = rounds[0];
+  if (!firstRound || teams.length !== QUALIFICATION_REGISTERED_COUNT) {
+    return null;
+  }
+
+  for (let i = 0; i < QUALIFICATION_1_REQUIRED_MATCHES; i += 1) {
+    const match = firstRound.matches[i];
+    if (!match?.teamA || !match?.teamB) {
+      return "Preencha os jogos 1 a 10 da classificação 1.";
+    }
+  }
+
+  const requiredIds = getTeamsInQualificationRequiredMatches(firstRound);
+  if (requiredIds.size < 20) {
+    return "Use 20 equipes diferentes nos jogos 1 a 10.";
+  }
+  if (requiredIds.size > 20) {
+    return "Cada equipe só pode aparecer uma vez nos jogos 1 a 10.";
+  }
+
+  return null;
+}
+
 export function countAssignedFirstRoundTeams(firstRound: Round | undefined): number {
   if (!firstRound) {
     return 0;
@@ -141,7 +280,7 @@ export function countAssignedFirstRoundTeams(firstRound: Round | undefined): num
   return ids.size;
 }
 
-/** Preenche a primeira rodada na ordem da lista de equipes. */
+/** Preenche a classificação 1 na ordem da lista. */
 export function autoSeedFirstRound(tournament: TournamentState): TournamentState {
   const next = structuredClone(tournament);
   const firstRound = next.rounds[0];
@@ -154,6 +293,28 @@ export function autoSeedFirstRound(tournament: TournamentState): TournamentState
     match.teamB = null;
     match.winnerId = null;
   });
+
+  if (next.bracketSize === 22) {
+    const teams = next.teams;
+    for (let i = 0; i < 20; i += 1) {
+      const team = teams[i];
+      if (!team) {
+        continue;
+      }
+      const matchIndex = Math.floor(i / 2);
+      const slot = i % 2;
+      const match = firstRound.matches[matchIndex];
+      if (!match) {
+        continue;
+      }
+      if (slot === 0) {
+        match.teamA = team;
+      } else {
+        match.teamB = team;
+      }
+    }
+    return next;
+  }
 
   next.teams.forEach((team, index) => {
     const matchIndex = Math.floor(index / 2);
@@ -188,7 +349,6 @@ export function clearFirstRoundPairings(tournament: TournamentState): Tournament
   return next;
 }
 
-/** Define ou troca uma equipe em um slot da primeira rodada (remove duplicatas). */
 export function assignTeamToFirstRoundSlot(
   tournament: TournamentState,
   matchIndex: number,
@@ -251,15 +411,21 @@ export function removeTeamFromSetup(
   return next;
 }
 
-/** Inicia a simulação usando os confrontos definidos na primeira rodada. */
 export function startTournament(tournament: TournamentState): TournamentState {
+  let prepared = finalizeQualification1Pairings(tournament);
+
   if (
-    !canStartTournament(tournament.bracketSize, tournament.teams.length, tournament.rounds, tournament.teams)
+    !canStartTournament(
+      prepared.bracketSize,
+      prepared.teams.length,
+      prepared.rounds,
+      prepared.teams,
+    )
   ) {
     return tournament;
   }
 
-  const next = structuredClone(tournament);
+  const next = structuredClone(prepared);
 
   for (const match of next.rounds[0]?.matches ?? []) {
     match.winnerId = null;
@@ -292,14 +458,11 @@ function getTeamById(teams: Team[], teamId: string): Team | null {
   return teams.find((team) => team.id === teamId) ?? null;
 }
 
-function clearDownstreamMatches(
+function clearSlotInRounds(
   rounds: Round[],
-  bracketSize: BracketSize,
-  fromRoundIndex: number,
-  fromMatchIndex: number,
+  slots: { roundIndex: number; matchIndex: number; slot: "A" | "B" }[],
 ): Round[] {
   const nextRounds = structuredClone(rounds);
-  const slots = getDownstreamSlotsToClear(bracketSize, fromRoundIndex, fromMatchIndex);
 
   for (const { roundIndex, matchIndex, slot } of slots) {
     const nextMatch = nextRounds[roundIndex]?.matches[matchIndex];
@@ -315,6 +478,17 @@ function clearDownstreamMatches(
   }
 
   return nextRounds;
+}
+
+function clearDownstreamMatches(
+  rounds: Round[],
+  bracketSize: BracketSize,
+  fromRoundIndex: number,
+  fromMatchIndex: number,
+): Round[] {
+  const winnerSlots = getDownstreamSlotsToClear(bracketSize, fromRoundIndex, fromMatchIndex);
+  const loserSlots = getLoserDownstreamSlotsToClear(bracketSize, fromRoundIndex, fromMatchIndex);
+  return clearSlotInRounds(rounds, [...winnerSlots, ...loserSlots]);
 }
 
 export function selectMatchWinner(
@@ -344,7 +518,9 @@ export function selectMatchWinner(
     return tournament;
   }
 
-  if (targetMatch.winnerId && targetMatch.winnerId !== winnerId) {
+  const previousWinnerId = targetMatch.winnerId;
+
+  if (previousWinnerId && previousWinnerId !== winnerId) {
     nextTournament.rounds = clearDownstreamMatches(
       nextTournament.rounds,
       nextTournament.bracketSize,
@@ -373,6 +549,27 @@ export function selectMatchWinner(
     }
   }
 
+  const loserId =
+    winnerId === targetMatch.teamA?.id ? targetMatch.teamB?.id : targetMatch.teamA?.id;
+  const loserPlacement = getLoserAdvancement(
+    nextTournament.bracketSize,
+    targetMatch.roundIndex,
+    targetMatch.matchIndex,
+  );
+
+  if (loserPlacement && loserId) {
+    const loserTeam = getTeamById(nextTournament.teams, loserId);
+    const loserMatch =
+      nextTournament.rounds[loserPlacement.roundIndex]?.matches[loserPlacement.matchIndex];
+    if (loserTeam && loserMatch) {
+      if (loserPlacement.slot === "A") {
+        loserMatch.teamA = loserTeam;
+      } else {
+        loserMatch.teamB = loserTeam;
+      }
+    }
+  }
+
   const finalRound = nextTournament.rounds[nextTournament.rounds.length - 1];
   const finalMatch = finalRound?.matches[0];
 
@@ -394,10 +591,14 @@ export function canStartTournament(
   teams: Team[],
 ): boolean {
   return (
-    teamsCount === bracketSize &&
-    isFirstRoundPairingComplete(rounds, teams)
+    teamsCount === getRegisteredTeamCount(bracketSize) &&
+    isFirstRoundPairingComplete(rounds, teams, bracketSize)
   );
 }
+
+export { getRegisteredTeamCount };
+
+export { getStandardFirstRoundMatchCount };
 
 export function createTeamId(iso: string, name: string): string {
   return `${iso}-${name.toLowerCase().replace(/\s+/g, "-")}`;

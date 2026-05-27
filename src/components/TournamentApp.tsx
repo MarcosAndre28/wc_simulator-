@@ -37,10 +37,28 @@ export function TournamentApp() {
     void Promise.resolve().then(() => {
       const saved = loadTournament();
       if (saved) {
-        const normalized =
-          !SETUP_BRACKET_SIZES.includes(saved.bracketSize) && saved.phase === "setup"
-            ? { ...saved, bracketSize: 16 as BracketSize, teams: saved.teams.slice(0, 16) }
-            : saved;
+        const rawSize = saved.bracketSize as number;
+        const migratedSize =
+          rawSize === 20 || rawSize === 21 ? (22 as BracketSize) : saved.bracketSize;
+        let normalized =
+          !SETUP_BRACKET_SIZES.includes(migratedSize) && saved.phase === "setup"
+            ? {
+                ...saved,
+                bracketSize: 16 as BracketSize,
+                teams: saved.teams.slice(0, 16),
+              }
+            : { ...saved, bracketSize: migratedSize };
+
+        if (
+          normalized.bracketSize === 22 &&
+          (normalized.rounds[0]?.matches.length !== 11 ||
+            normalized.rounds.length !== 6)
+        ) {
+          const fresh = createEmptyTournament(22);
+          fresh.teams = normalized.teams.slice(0, 21);
+          fresh.phase = normalized.phase === "setup" ? "setup" : "setup";
+          normalized = fresh;
+        }
         setTournament(normalized);
         if (normalized.phase === "bracket" || normalized.phase === "champion") {
           setSimulatorTab("bracket");
@@ -254,7 +272,7 @@ export function TournamentApp() {
     <div className="app-shell flex min-h-screen flex-col">
       <AppHeader />
 
-      <main className="mx-auto flex w-full max-w-[100%] flex-col gap-6 px-2 py-6 sm:px-4 sm:py-8 lg:px-6">
+      <main className="mx-auto flex w-full max-w-[100%] flex-col gap-4 overflow-x-hidden px-2 py-4 sm:px-4 sm:py-6 lg:px-4 xl:px-6">
         {isChampion && tournament.champion && (
           <div className="flex flex-wrap items-center justify-between gap-3 px-2">
             <p className="text-sm text-white/50">
@@ -284,6 +302,7 @@ export function TournamentApp() {
         )}
 
         <Bracket
+          bracketSize={tournament.bracketSize}
           rounds={tournament.rounds}
           onSelectWinner={handleSelectWinner}
           champion={tournament.champion}

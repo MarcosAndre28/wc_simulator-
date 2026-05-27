@@ -49,7 +49,7 @@ export function WelcomeScreen({ champion, onStartNew }: WelcomeScreenProps) {
         </div>
 
         <h1 className="text-4xl font-extrabold uppercase tracking-[0.12em] text-[#ffd700] sm:text-5xl md:text-6xl">
-          Campeão Mundial
+          Campeão Copa Lisboa
         </h1>
 
         {champion ? (

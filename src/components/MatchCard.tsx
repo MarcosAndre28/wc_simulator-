@@ -3,6 +3,13 @@
 import { Match, Round } from "@/types/tournament";
 import { FlagIcon } from "@/components/FlagIcon";
 import { useBracketLayout } from "@/components/BracketLayoutContext";
+import {
+  BRACKET_ROUND_INDEX,
+  getBracketTbdLabel,
+  getQualification2TbdLabel,
+  QUALIFICATION_1_MATCH_COUNT,
+  QUALIFICATION_2_ROUND_INDEX,
+} from "@/lib/bracket-structure";
 
 interface MatchCardProps {
   match: Match;
@@ -18,9 +25,14 @@ const ROUND_SHORT: Record<string, string> = {
   "Quartas de final": "QF",
   Semifinal: "SF",
   Final: "F",
-  "Primeira fase": "R1",
-  "Segunda fase": "R2",
+  "Classificação 1": "C1",
+  "Classificação 2": "C2",
 };
+
+function isQualificationFormatBracket(rounds: Round[]): boolean {
+  const first = rounds[0];
+  return (first?.matches.length ?? 0) === QUALIFICATION_1_MATCH_COUNT;
+}
 
 function getTbdLabel(
   roundIndex: number,
@@ -28,6 +40,17 @@ function getTbdLabel(
   slot: 0 | 1,
   rounds: Round[],
 ): string {
+  const slotKey = slot === 0 ? "A" : "B";
+  const isQualFormat = isQualificationFormatBracket(rounds);
+
+  if (isQualFormat && roundIndex === QUALIFICATION_2_ROUND_INDEX) {
+    return getQualification2TbdLabel(matchIndex, slotKey);
+  }
+
+  if (isQualFormat && roundIndex === BRACKET_ROUND_INDEX) {
+    return getBracketTbdLabel(roundIndex, matchIndex, slotKey) ?? "A definir";
+  }
+
   if (roundIndex === 0) {
     return "A definir";
   }
@@ -74,7 +97,7 @@ function TeamRow({
           className="min-w-0 flex-1 truncate text-left text-xs text-white/40"
           title={label}
         >
-          A definir
+          {label ?? "A definir"}
         </span>
         <span className="w-6 shrink-0 text-right text-sm font-semibold text-white/30">-</span>
       </div>

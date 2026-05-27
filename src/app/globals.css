@@ -101,6 +101,47 @@ input {
   }
 }
 
+.bracket-scale-container {
+  -webkit-overflow-scrolling: touch;
+}
+
+.bracket-scale-wrapper {
+  transition: transform 150ms ease-out;
+  overflow: visible;
+}
+
+.bracket-scale-container {
+  overflow-y: visible;
+}
+
+.qualification-aside {
+  scrollbar-color: rgba(255, 215, 0, 0.25) transparent;
+  scrollbar-width: thin;
+}
+
+.qualification-aside::-webkit-scrollbar {
+  width: 6px;
+}
+
+.qualification-aside::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: rgba(255, 215, 0, 0.25);
+}
+
+@media (min-width: 1024px) {
+  .bracket-page-layout .bracket-main {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .bracket-page-layout .bracket-scale-container {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+  }
+}
+
 /* Lista de equipes nos confrontos (substitui select nativo do sistema) */
 .pairing-picker-menu {
   scrollbar-color: rgba(255, 215, 0, 0.35) #121212;

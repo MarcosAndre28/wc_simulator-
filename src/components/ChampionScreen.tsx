@@ -32,7 +32,7 @@ export function ChampionScreen({ champion, onStartNew, onViewBracket }: Champion
         </div>
 
         <h1 className="text-4xl font-extrabold uppercase tracking-[0.14em] text-[#ffd700] sm:text-5xl md:text-6xl">
-          Campeão Mundial
+          Campeão Copa Lisboa
         </h1>
 
         <p className="mt-4 text-2xl font-bold text-white sm:text-3xl">{champion.name}</p>
