@@ -19,6 +19,7 @@ const ROUND_SHORT: Record<string, string> = {
   Semifinal: "SF",
   Final: "F",
   "Primeira fase": "R1",
+  "Segunda fase": "R2",
 };
 
 function getTbdLabel(

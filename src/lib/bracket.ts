@@ -1,10 +1,16 @@
 import {
+  getDownstreamSlotsToClear,
+  getMatchesPerRound,
+  getRoundNameForBracket,
+  getTotalRoundsForSize,
+  getWinnerAdvancement,
+} from "@/lib/bracket-structure";
+import {
   BracketSize,
   Match,
   Round,
   Team,
   TournamentState,
-  getRoundName,
 } from "@/types/tournament";
 
 function createMatchId(roundIndex: number, matchIndex: number): string {
@@ -23,19 +29,19 @@ function createEmptyMatch(roundIndex: number, matchIndex: number): Match {
 }
 
 export function getTotalRounds(bracketSize: BracketSize): number {
-  return Math.log2(bracketSize);
+  return getTotalRoundsForSize(bracketSize);
 }
 
 export function createInitialRounds(bracketSize: BracketSize): Round[] {
-  const totalRounds = getTotalRounds(bracketSize);
+  const totalRounds = getTotalRoundsForSize(bracketSize);
   const rounds: Round[] = [];
 
   for (let roundIndex = 0; roundIndex < totalRounds; roundIndex += 1) {
-    const matchesInRound = bracketSize / Math.pow(2, roundIndex + 1);
+    const matchesInRound = getMatchesPerRound(bracketSize, roundIndex);
 
     rounds.push({
       index: roundIndex,
-      name: getRoundName(roundIndex, totalRounds),
+      name: getRoundNameForBracket(bracketSize, roundIndex, totalRounds),
       matches: Array.from({ length: matchesInRound }, (_, matchIndex) =>
         createEmptyMatch(roundIndex, matchIndex),
       ),
@@ -288,32 +294,24 @@ function getTeamById(teams: Team[], teamId: string): Team | null {
 
 function clearDownstreamMatches(
   rounds: Round[],
+  bracketSize: BracketSize,
   fromRoundIndex: number,
   fromMatchIndex: number,
 ): Round[] {
   const nextRounds = structuredClone(rounds);
-  let currentRoundIndex = fromRoundIndex;
-  let currentMatchIndex = fromMatchIndex;
+  const slots = getDownstreamSlotsToClear(bracketSize, fromRoundIndex, fromMatchIndex);
 
-  while (currentRoundIndex + 1 < nextRounds.length) {
-    const nextRoundIndex = currentRoundIndex + 1;
-    const nextMatchIndex = Math.floor(currentMatchIndex / 2);
-    const slot = currentMatchIndex % 2;
-    const nextMatch = nextRounds[nextRoundIndex]?.matches[nextMatchIndex];
-
+  for (const { roundIndex, matchIndex, slot } of slots) {
+    const nextMatch = nextRounds[roundIndex]?.matches[matchIndex];
     if (!nextMatch) {
-      break;
+      continue;
     }
-
-    if (slot === 0) {
+    if (slot === "A") {
       nextMatch.teamA = null;
     } else {
       nextMatch.teamB = null;
     }
-
     nextMatch.winnerId = null;
-    currentRoundIndex = nextRoundIndex;
-    currentMatchIndex = nextMatchIndex;
   }
 
   return nextRounds;
@@ -349,6 +347,7 @@ export function selectMatchWinner(
   if (targetMatch.winnerId && targetMatch.winnerId !== winnerId) {
     nextTournament.rounds = clearDownstreamMatches(
       nextTournament.rounds,
+      nextTournament.bracketSize,
       targetMatch.roundIndex,
       targetMatch.matchIndex,
     );
@@ -357,16 +356,16 @@ export function selectMatchWinner(
   targetMatch.winnerId = winnerId;
 
   const winnerTeam = getTeamById(nextTournament.teams, winnerId);
-  const nextRoundIndex = targetMatch.roundIndex + 1;
-  const nextRound = nextTournament.rounds[nextRoundIndex];
+  const placement = getWinnerAdvancement(
+    nextTournament.bracketSize,
+    targetMatch.roundIndex,
+    targetMatch.matchIndex,
+  );
 
-  if (nextRound && winnerTeam) {
-    const nextMatchIndex = Math.floor(targetMatch.matchIndex / 2);
-    const nextMatch = nextRound.matches[nextMatchIndex];
-    const slot = targetMatch.matchIndex % 2;
-
+  if (placement && winnerTeam) {
+    const nextMatch = nextTournament.rounds[placement.roundIndex]?.matches[placement.matchIndex];
     if (nextMatch) {
-      if (slot === 0) {
+      if (placement.slot === "A") {
         nextMatch.teamA = winnerTeam;
       } else {
         nextMatch.teamB = winnerTeam;

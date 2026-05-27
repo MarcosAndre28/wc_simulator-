@@ -1,6 +1,6 @@
 import { BracketSize } from "@/types/tournament";
 
-export const SETUP_BRACKET_SIZES: BracketSize[] = [4, 8, 16, 32];
+export const SETUP_BRACKET_SIZES: BracketSize[] = [4, 8, 16, 20, 32];
 
 interface BracketSizeSelectorProps {
   value: BracketSize;
@@ -26,9 +26,10 @@ export function BracketSizeSelector({ value, onChange, disabled = false }: Brack
         <h2 className="text-lg font-semibold text-white">Tamanho do torneio</h2>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {SETUP_BRACKET_SIZES.map((size) => {
           const isActive = displayValue === size;
+          const teamsPerSide = size / 2;
 
           return (
             <button
@@ -36,13 +37,16 @@ export function BracketSizeSelector({ value, onChange, disabled = false }: Brack
               type="button"
               disabled={disabled}
               onClick={() => onChange(size)}
-              className={`flex flex-col items-center justify-center rounded-xl border py-5 transition ${
+              className={`flex flex-col items-center justify-center rounded-xl border py-4 transition sm:py-5 ${
                 isActive
                   ? "border-[#ffd700] bg-[#ffd700]/10 text-white shadow-[0_0_20px_rgba(255,215,0,0.15)]"
                   : "border-white/10 bg-[#121212] text-white/70 hover:border-white/20 hover:text-white"
               } disabled:cursor-not-allowed disabled:opacity-50`}
             >
-              <span className="text-3xl font-bold">{size}</span>
+              <span className="text-2xl font-bold sm:text-3xl">{size}</span>
+              <span className="mt-0.5 text-[10px] text-white/40">
+                {teamsPerSide} por lado
+              </span>
               {isActive && (
                 <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-[#ffd700]">
                   Equipes

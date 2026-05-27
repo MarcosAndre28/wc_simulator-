@@ -1,4 +1,4 @@
-export type BracketSize = 32 | 16 | 8 | 4 | 2;
+export type BracketSize = 32 | 20 | 16 | 8 | 4 | 2;
 
 export type TournamentPhase = "setup" | "bracket" | "champion";
 
@@ -37,7 +37,7 @@ export interface TournamentState {
   champion: Team | null;
 }
 
-export const BRACKET_SIZE_OPTIONS: BracketSize[] = [32, 16, 8, 4, 2];
+export const BRACKET_SIZE_OPTIONS: BracketSize[] = [32, 20, 16, 8, 4, 2];
 
 export const ROUND_NAMES: Record<number, string> = {
   0: "Primeira fase",
@@ -47,6 +47,7 @@ export const ROUND_NAMES: Record<number, string> = {
   4: "Final",
 };
 
+/** @deprecated Use getRoundNameForBracket from bracket-structure.ts */
 export function getRoundName(roundIndex: number, totalRounds: number): string {
   const roundsFromFinal = totalRounds - 1 - roundIndex;
 

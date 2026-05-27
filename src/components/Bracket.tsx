@@ -28,12 +28,22 @@ interface BracketProps {
 
 type WingColumn = { round: Round; matches: Match[] };
 
-function splitRoundMatches(round: Round): { left: Match[]; right: Match[] } {
-  const half = round.matches.length / 2;
-  return {
-    left: round.matches.slice(0, half),
-    right: round.matches.slice(half),
-  };
+function splitRoundMatchesForSide(round: Round, side: "left" | "right"): Match[] {
+  const half = Math.floor(round.matches.length / 2);
+  if (side === "left") {
+    return round.matches.slice(0, half);
+  }
+  return round.matches.slice(half);
+}
+
+/** Só inclui colunas com jogos na asa (evita semifinal vazia no torneio de 20). */
+function buildWingColumns(preFinalRounds: Round[], side: "left" | "right"): WingColumn[] {
+  return preFinalRounds
+    .map((round) => ({
+      round,
+      matches: splitRoundMatchesForSide(round, side),
+    }))
+    .filter((col) => col.matches.length > 0);
 }
 
 function BracketRoundColumn({
@@ -153,15 +163,8 @@ function BracketTree({
     const metrics = getBracketLayoutMetrics(wingFirstRoundCount);
     const layoutHeight = getWingLayoutHeight(wingFirstRoundCount, metrics);
 
-    const leftColumns: WingColumn[] = preFinalRounds.map((round) => ({
-      round,
-      matches: splitRoundMatches(round).left,
-    }));
-
-    const rightColumns: WingColumn[] = preFinalRounds.map((round) => ({
-      round,
-      matches: splitRoundMatches(round).right,
-    }));
+    const leftColumns = buildWingColumns(preFinalRounds, "left");
+    const rightColumns = buildWingColumns(preFinalRounds, "right");
 
     const finalMatch = finalRound?.matches[0];
     const phaseLabels: string[] = [];
@@ -174,8 +177,8 @@ function BracketTree({
       phaseLabels.push(...names);
     }
 
-    const columnCount = preFinalRounds.length;
-    const wingMinWidth = getWingMinWidth(columnCount, metrics);
+    const leftWingMinWidth = getWingMinWidth(leftColumns.length, metrics);
+    const rightWingMinWidth = getWingMinWidth(rightColumns.length, metrics);
     const expandViewport = shouldExpandBracketViewport(wingFirstRoundCount);
 
     return {
@@ -185,7 +188,8 @@ function BracketTree({
       leftColumns,
       rightColumns,
       phaseLabels,
-      wingMinWidth,
+      leftWingMinWidth,
+      rightWingMinWidth,
       metrics,
       expandViewport,
     };
@@ -202,7 +206,8 @@ function BracketTree({
     leftColumns,
     rightColumns,
     phaseLabels,
-    wingMinWidth,
+    leftWingMinWidth,
+    rightWingMinWidth,
     metrics,
     expandViewport,
   } = layout;
@@ -230,7 +235,7 @@ function BracketTree({
         <div className="bracket-tree mx-auto flex w-max max-w-full flex-col items-center gap-8 px-2 lg:flex-row lg:items-start lg:justify-center lg:gap-x-0 lg:gap-y-0">
           <div
             className="bracket-wing bracket-wing--left shrink-0"
-            style={{ width: wingMinWidth, minWidth: wingMinWidth }}
+            style={{ width: leftWingMinWidth, minWidth: leftWingMinWidth }}
           >
             <BracketWing
               columns={leftColumns}
@@ -267,7 +272,7 @@ function BracketTree({
 
           <div
             className="bracket-wing bracket-wing--right shrink-0"
-            style={{ width: wingMinWidth, minWidth: wingMinWidth }}
+            style={{ width: rightWingMinWidth, minWidth: rightWingMinWidth }}
           >
             <BracketWing
               columns={rightColumns}

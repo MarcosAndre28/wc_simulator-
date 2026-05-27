@@ -33,6 +33,9 @@ function scaleForWingMatches(wingFirstRoundMatchCount: number): number {
   if (wingFirstRoundMatchCount <= 4) {
     return 1.12;
   }
+  if (wingFirstRoundMatchCount <= 5) {
+    return 1.05;
+  }
   return 1;
 }
 
