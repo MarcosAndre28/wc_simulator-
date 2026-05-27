@@ -1,0 +1,4 @@
+{
+  "npm.autoDetect": "off",
+  "debug.javascript.autoAttachFilter": "disabled"
+}
