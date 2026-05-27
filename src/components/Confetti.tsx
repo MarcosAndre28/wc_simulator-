@@ -28,8 +28,8 @@ function createPieces(count: number): ConfettiPiece[] {
   }));
 }
 
-export function Confetti() {
-  const pieces = useMemo(() => createPieces(55), []);
+export function Confetti({ pieceCount = 55 }: { pieceCount?: number }) {
+  const pieces = useMemo(() => createPieces(pieceCount), [pieceCount]);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-20 overflow-hidden" aria-hidden>

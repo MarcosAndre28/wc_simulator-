@@ -66,6 +66,39 @@ input {
   animation-iteration-count: infinite;
 }
 
+/* Tela de campeão */
+.champion-screen {
+  background-color: #000;
+}
+
+.champion-title-metallic {
+  background: linear-gradient(
+    180deg,
+    #fff5c2 0%,
+    #ffd700 28%,
+    #e6b800 55%,
+    #ffd700 78%,
+    #c9a227 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 12px rgba(255, 215, 0, 0.35));
+}
+
+.champion-name-gold {
+  background: linear-gradient(180deg, #ffe566 0%, #ffd700 50%, #d4af37 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 8px rgba(255, 215, 0, 0.25));
+}
+
+.champion-btn-primary:focus-visible {
+  outline: 2px solid #ffd700;
+  outline-offset: 2px;
+}
+
 /* Chaveamento: linhas em L a partir do centro de cada card */
 .bracket-tree {
   position: relative;
